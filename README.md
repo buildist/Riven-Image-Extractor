@@ -1,0 +1,1 @@
+This is a quickly hacked up tool for extracting the images from Riven *.mhk data files. Based on the documentation at Inside the Link: http://insidethelink.ortiche.net/wiki/index.php/Mohawk_Bitmaps
