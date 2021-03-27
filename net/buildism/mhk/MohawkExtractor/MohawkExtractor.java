@@ -87,11 +87,11 @@ public class MohawkExtractor {
         int resourceIndexInFileTable = ushort(bb.getShort());
         bb.mark();
         bb.position(resourceDirOffset + resourceNameListOffset + nameListOffset);
-        byte ch = -1;
+        byte ch = bb.get();
         String name = "";
         while(ch != 0) {
-          ch = bb.get();
           name += Character.toString((char) ch);
+          ch = bb.get();
         }
         bb.reset();
         int resourceId = typeInfo.resourceIndexToResourceId.get(resourceIndexInFileTable);
