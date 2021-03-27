@@ -461,9 +461,6 @@ public class MohawkExtractor {
             for (int y = 0; y < height; y++) {
               for (int x = 0; x < bytesPerRow; x++) {
                 int colorIndex = image[i];
-                if (colorIndex < 0) {
-                  colorIndex = 255;
-                }
                 Color color = colors[colorIndex & 0xff];
                 if (x < width) output.setRGB(x, y, color.getRGB());
                 i++;
