@@ -1,13 +1,15 @@
 package net.buildism.mhk.MohawkExtractor;
 
-import java.awt.*;
+import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.imageio.ImageIO;
@@ -104,11 +106,14 @@ public class MohawkExtractor {
     FileInfo[] files = new FileInfo[fileCount];
     for(int i = 0; i < fileCount; i++) {
       int offset = bb.getInt();
+      if (i > 0 ) {
+        files[i - 1].size = offset - files[i - 1].offset;
+      }
       int size0 = ushort(bb.getShort());
       int size1 = ubyte(bb.get());
-      int fileSize = size0 | (size1 << 16);
+      int size2 = ubyte(bb.get()) & 7;
+      int fileSize = size0 | (size1 << 16) | (size2 << 24);
       files[i] = new FileInfo(offset, fileSize);
-      bb.get();
       bb.getShort();
     }
 
@@ -460,7 +465,7 @@ public class MohawkExtractor {
             int i = 0;
             for (int y = 0; y < height; y++) {
               for (int x = 0; x < bytesPerRow; x++) {
-                int colorIndex = image[i];
+                int colorIndex = ubyte(image[i]);
                 Color color = colors[colorIndex & 0xff];
                 if (x < width) output.setRGB(x, y, color.getRGB());
                 i++;
@@ -481,25 +486,28 @@ public class MohawkExtractor {
 
           byte[] fileBytes = new byte[file.size];
           bb.get(fileBytes);
-          int stcoOffset = indexOf(fileBytes, new byte[]{0x73, 0x74, 0x63, 0x6f});
+          List<Integer> stcoOffsets =
+              find(fileBytes, new byte[]{0x73, 0x74, 0x63, 0x6f, 0x00, 0x00, 0x00, 0x00});
           ByteBuffer movBuffer = ByteBuffer.wrap(fileBytes);
 
-          if (stcoOffset == -1) {
+          if (stcoOffsets.isEmpty()) {
             System.out.println(resourceId + " " + resource + " ");
           } else {
-            movBuffer.position(stcoOffset);
-            movBuffer.getInt(); // 'stco'
-            movBuffer.get(); // version;
-            movBuffer.get(); // flags
-            movBuffer.get();
-            movBuffer.get();
-            int entryCount = movBuffer.getInt();
+            for(int stcoOffset : stcoOffsets) {
+              movBuffer.position(stcoOffset);
+              movBuffer.getInt(); // 'stco'
+              movBuffer.get(); // version;
+              movBuffer.get(); // flags
+              movBuffer.get();
+              movBuffer.get();
+              int entryCount = movBuffer.getInt();
 
-            for (int i = 0; i < entryCount; i++) {
-              movBuffer.mark();
-              int offset = movBuffer.getInt() - file.offset;
-              movBuffer.reset();
-              movBuffer.putInt(offset);
+              for (int i = 0; i < entryCount; i++) {
+                movBuffer.mark();
+                int offset = movBuffer.getInt() - file.offset;
+                movBuffer.reset();
+                movBuffer.putInt(offset);
+              }
             }
           }
 
@@ -511,9 +519,10 @@ public class MohawkExtractor {
     }
   }
 
-  private static int indexOf(byte[] array, byte[] target) {
+  private static List<Integer> find(byte[] array, byte[] target) {
+    List<Integer> result = new ArrayList<>();
     if (target.length == 0) {
-      return 0;
+      return result;
     }
 
     outer:
@@ -523,9 +532,9 @@ public class MohawkExtractor {
           continue outer;
         }
       }
-      return i;
+      result.add(i);
     }
-    return -1;
+    return result;
   }
 
   private static int ushort(int value) {
@@ -570,7 +579,7 @@ public class MohawkExtractor {
 
   static class FileInfo {
     final int offset;
-    final int size;
+    int size;
 
     FileInfo(int offset, int size) {
       this.offset = offset;
